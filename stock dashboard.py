@@ -569,16 +569,31 @@ with tab5:
     # อัปโหลดพอร์ตจาก CSV
     uploaded_file = st.file_uploader("📥 นำเข้าพอร์ตโฟลิโอ CSV", type=["csv"])
     if uploaded_file:
-        imported_df = pd.read_csv(uploaded_file)
-        st.session_state.portfolio = [
-            {
-                "ticker": row["ASSET"],
-                "quantity": int(row["DETAIL"].split()[0]),
-                "buy_price": float(row["DETAIL"].split("@ $")[1])
-            }
-            for _, row in imported_df.iterrows()
-        ]
-        st.success("นำเข้าพอร์ตโฟลิโอสำเร็จ!")
+        try:
+            imported_df = pd.read_csv(uploaded_file)
+            # รองรับทั้ง CSV ภาษาไทย (export จากแอปนี้) และ CSV ภาษาอังกฤษ (เวอร์ชันเก่า)
+            if "หุ้น" in imported_df.columns:
+                ticker_col, detail_col = "หุ้น", "รายละเอียด"
+            else:
+                ticker_col, detail_col = "ASSET", "DETAIL"
+
+            portfolio = []
+            for _, row in imported_df.iterrows():
+                try:
+                    detail = str(row[detail_col])
+                    qty = int(detail.split()[0])
+                    buy_price = float(detail.split("@ $")[1])
+                    portfolio.append({
+                        "ticker": row[ticker_col],
+                        "quantity": qty,
+                        "buy_price": buy_price
+                    })
+                except Exception:
+                    st.warning(f"ข้ามแถว {row[ticker_col]} — รูปแบบไม่ถูกต้อง")
+            st.session_state.portfolio = portfolio
+            st.success(f"นำเข้าพอร์ตโฟลิโอสำเร็จ! ({len(portfolio)} รายการ)")
+        except Exception as e:
+            st.error(f"เกิดข้อผิดพลาด: {e}")
 
     # ฟอร์มเพิ่มสินทรัพย์ใหม่
     st.write("➕ เพิ่มสินทรัพย์ใหม่ในพอร์ตโฟลิโอ")
