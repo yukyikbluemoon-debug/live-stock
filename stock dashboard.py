@@ -95,6 +95,7 @@ def fetch_news(ticker):
 # แผงเปรียบเทียบหุ้นเพื่อน
 def show_peer_analysis():
     STOCKS = [
+                # === หุ้นขนาดใหญ่ (Large Cap) ===
         "AAPL","ABBV","ACN","ADBE","ADP","AMD","AMGN","AMT","AMZN","APD",
         "AVGO","AXP","BA","BK","BKNG","BMY","BRK.B","BSX","C","CAT","CI",
         "CL","CMCSA","COST","CRM","CSCO","CVX","DE","DHR","DIS","DUK",
@@ -104,7 +105,48 @@ def show_peer_analysis():
         "MSFT","NEE","NFLX","NKE","NOW","NVDA","ORCL","PEP","PFE","PG",
         "PLD","PM","PSA","REGN","RTX","SBUX","SCHW","SLB","SO","SPGI",
         "T","TJX","TMO","TSLA","TXN","UNH","UNP","UPS","V","VZ","WFC",
-        "WM","WMT","XOM"
+        "WM","WMT","XOM",
+        # === หุ้นเพิ่มเติม ===
+        "ABNB","AMAT","APP","AXON","BDX","BIIB","BLK","CEG","CF","CHTR",
+        "COF","COP","CTAS","DECK","DG","DHI","DLTR","DOV","EA","ECL",
+        "ETN","EW","FAST","FCX","FICO","FTNT","GIS","GPC","GPN","GRMN",
+        "GS","HAL","HCA","HES","HIG","HLT","HPE","HPQ","HSY","IQV",
+        "IR","IT","ITW","JCI","KEY","KEYS","KHC","KLAC","KMB","KMI",
+        "KR","LRCX","LUV","LVS","LYB","MAR","MCO","MELI","MGM","MPC",
+        "MPWR","MRO","MS","MU","NEM","NET","NSC","NTAP","NUE","O",
+        "OKE","ON","PAYX","PCAR","PCG","PH","PKG","PPG","PRU","PWR",
+        "PYPL","QCOM","RCL","RF","RJF","RL","RMD","ROK","ROP","ROST",
+        "RSG","SHW","SNPS","SPG","SPOT","SRE","STT","STX","STZ","SWK",
+        "SYK","SYY","TMUS","TROW","TRV","TSCO","TTWO","UAL","URI","USB",
+        "VICI","VLO","VMC","VRSK","VRTX","VST","WAB","WAT","WBA","WEC",
+        "WELL","WDC","WYNN","XEL","YUM","ZBH","ZBRA","ZTS",
+        # === ETF - ดัชนีรวม ===
+        "SPY","VOO","IVV","VTI","QQQ","IWM","DIA","MDY","IJH","IJR",
+        "VT","ITOT","SCHB","SPTM",
+        # === ETF - กลุ่มเทคโนโลยี ===
+        "XLK","VGT","FTEC","IGV","SOXX","SMH","CIBR","SKYY","CLOU",
+        "ARKK","ARKQ","ARKG","ARKW","ARKF","ROBO","BOTZ","AIQ",
+        # === ETF - พลังงาน / โภคภัณฑ์ ===
+        "XLE","VDE","IYE","OIH","XOP","GLD","IAU","SLV","GDX","GDXJ",
+        "USO","UNG","DBC","PDBC",
+        # === ETF - การเงิน / อสังหาริมทรัพย์ ===
+        "XLF","VFH","KBE","KRE","VNQ","IYR","SCHH",
+        # === ETF - สุขภาพ ===
+        "XLV","VHT","IYH","IBB","XBI",
+        # === ETF - สินค้า / อุตสาหกรรม ===
+        "XLP","VDC","XLI","VIS","XLB","VAW",
+        # === ETF - พันธบัตร ===
+        "AGG","BND","TLT","IEF","SHY","LQD","HYG","JNK","TIP","VTIP",
+        "GOVT","MUB","BSV","BIV","BLV","VCSH","VCIT",
+        # === ETF - ต่างประเทศ ===
+        "VEA","VWO","EFA","EEM","IDEV","IEMG","EWJ","EWZ","EWU","EWG",
+        "EWC","KWEB","MCHI","FXI","INDA","EWY","EWT","VGK","VXUS",
+        # === ETF - เงินปันผล ===
+        "SCHD","VYM","DVY","HDV","SPHD","DGRO","VIG","SDY","NOBL",
+        # === ETF - เลเวอเรจ ===
+        "TQQQ","SQQQ","UPRO","SPXU","UVXY","VXX","SOXL","SOXS",
+        # === Bitcoin / Crypto ETF ===
+        "IBIT","FBTC","BITB","ARKB","GBTC","ETHA",
     ]
 
     horizon_map = {
@@ -273,6 +315,7 @@ with tab1:
     st.subheader("🔍 ค้นหาหุ้น")
 
     STOCKS = [
+                # === หุ้นขนาดใหญ่ (Large Cap) ===
         "AAPL","ABBV","ACN","ADBE","ADP","AMD","AMGN","AMT","AMZN","APD",
         "AVGO","AXP","BA","BK","BKNG","BMY","BRK.B","BSX","C","CAT","CI",
         "CL","CMCSA","COST","CRM","CSCO","CVX","DE","DHR","DIS","DUK",
@@ -282,7 +325,48 @@ with tab1:
         "MSFT","NEE","NFLX","NKE","NOW","NVDA","ORCL","PEP","PFE","PG",
         "PLD","PM","PSA","REGN","RTX","SBUX","SCHW","SLB","SO","SPGI",
         "T","TJX","TMO","TSLA","TXN","UNH","UNP","UPS","V","VZ","WFC",
-        "WM","WMT","XOM"
+        "WM","WMT","XOM",
+        # === หุ้นเพิ่มเติม ===
+        "ABNB","AMAT","APP","AXON","BDX","BIIB","BLK","CEG","CF","CHTR",
+        "COF","COP","CTAS","DECK","DG","DHI","DLTR","DOV","EA","ECL",
+        "ETN","EW","FAST","FCX","FICO","FTNT","GIS","GPC","GPN","GRMN",
+        "GS","HAL","HCA","HES","HIG","HLT","HPE","HPQ","HSY","IQV",
+        "IR","IT","ITW","JCI","KEY","KEYS","KHC","KLAC","KMB","KMI",
+        "KR","LRCX","LUV","LVS","LYB","MAR","MCO","MELI","MGM","MPC",
+        "MPWR","MRO","MS","MU","NEM","NET","NSC","NTAP","NUE","O",
+        "OKE","ON","PAYX","PCAR","PCG","PH","PKG","PPG","PRU","PWR",
+        "PYPL","QCOM","RCL","RF","RJF","RL","RMD","ROK","ROP","ROST",
+        "RSG","SHW","SNPS","SPG","SPOT","SRE","STT","STX","STZ","SWK",
+        "SYK","SYY","TMUS","TROW","TRV","TSCO","TTWO","UAL","URI","USB",
+        "VICI","VLO","VMC","VRSK","VRTX","VST","WAB","WAT","WBA","WEC",
+        "WELL","WDC","WYNN","XEL","YUM","ZBH","ZBRA","ZTS",
+        # === ETF - ดัชนีรวม ===
+        "SPY","VOO","IVV","VTI","QQQ","IWM","DIA","MDY","IJH","IJR",
+        "VT","ITOT","SCHB","SPTM",
+        # === ETF - กลุ่มเทคโนโลยี ===
+        "XLK","VGT","FTEC","IGV","SOXX","SMH","CIBR","SKYY","CLOU",
+        "ARKK","ARKQ","ARKG","ARKW","ARKF","ROBO","BOTZ","AIQ",
+        # === ETF - พลังงาน / โภคภัณฑ์ ===
+        "XLE","VDE","IYE","OIH","XOP","GLD","IAU","SLV","GDX","GDXJ",
+        "USO","UNG","DBC","PDBC",
+        # === ETF - การเงิน / อสังหาริมทรัพย์ ===
+        "XLF","VFH","KBE","KRE","VNQ","IYR","SCHH",
+        # === ETF - สุขภาพ ===
+        "XLV","VHT","IYH","IBB","XBI",
+        # === ETF - สินค้า / อุตสาหกรรม ===
+        "XLP","VDC","XLI","VIS","XLB","VAW",
+        # === ETF - พันธบัตร ===
+        "AGG","BND","TLT","IEF","SHY","LQD","HYG","JNK","TIP","VTIP",
+        "GOVT","MUB","BSV","BIV","BLV","VCSH","VCIT",
+        # === ETF - ต่างประเทศ ===
+        "VEA","VWO","EFA","EEM","IDEV","IEMG","EWJ","EWZ","EWU","EWG",
+        "EWC","KWEB","MCHI","FXI","INDA","EWY","EWT","VGK","VXUS",
+        # === ETF - เงินปันผล ===
+        "SCHD","VYM","DVY","HDV","SPHD","DGRO","VIG","SDY","NOBL",
+        # === ETF - เลเวอเรจ ===
+        "TQQQ","SQQQ","UPRO","SPXU","UVXY","VXX","SOXL","SOXS",
+        # === Bitcoin / Crypto ETF ===
+        "IBIT","FBTC","BITB","ARKB","GBTC","ETHA",
     ]
 
     selected_ticker = st.selectbox("เลือกบริษัท", STOCKS)
@@ -500,6 +584,7 @@ with tab5:
     st.write("➕ เพิ่มสินทรัพย์ใหม่ในพอร์ตโฟลิโอ")
 
     tickers = [
+                # === หุ้นขนาดใหญ่ (Large Cap) ===
         "AAPL", "ABBV", "ACN", "ADBE", "ADP", "AMD", "AMGN", "AMT", "AMZN", "APD",
         "AVGO", "AXP", "BA", "BK", "BKNG", "BMY", "BRK.B", "BSX", "C", "CAT", "CI",
         "CL", "CMCSA", "COST", "CRM", "CSCO", "CVX", "DE", "DHR", "DIS", "DUK",
@@ -509,7 +594,48 @@ with tab5:
         "MSFT", "NEE", "NFLX", "NKE", "NOW", "NVDA", "ORCL", "PEP", "PFE", "PG",
         "PLD", "PM", "PSA", "REGN", "RTX", "SBUX", "SCHW", "SLB", "SO", "SPGI",
         "T", "TJX", "TMO", "TSLA", "TXN", "UNH", "UNP", "UPS", "V", "VZ", "WFC",
-        "WM", "WMT", "XOM"
+        "WM", "WMT", "XOM",
+        # === หุ้นเพิ่มเติม ===
+        "ABNB", "AMAT", "APP", "AXON", "BDX", "BIIB", "BLK", "CEG", "CF", "CHTR",
+        "COF", "COP", "CTAS", "DECK", "DG", "DHI", "DLTR", "DOV", "EA", "ECL",
+        "ETN", "EW", "FAST", "FCX", "FICO", "FTNT", "GIS", "GPC", "GPN", "GRMN",
+        "GS", "HAL", "HCA", "HES", "HIG", "HLT", "HPE", "HPQ", "HSY", "IQV",
+        "IR", "IT", "ITW", "JCI", "KEY", "KEYS", "KHC", "KLAC", "KMB", "KMI",
+        "KR", "LRCX", "LUV", "LVS", "LYB", "MAR", "MCO", "MELI", "MGM", "MPC",
+        "MPWR", "MRO", "MS", "MU", "NEM", "NET", "NSC", "NTAP", "NUE", "O",
+        "OKE", "ON", "PAYX", "PCAR", "PCG", "PH", "PKG", "PPG", "PRU", "PWR",
+        "PYPL", "QCOM", "RCL", "RF", "RJF", "RL", "RMD", "ROK", "ROP", "ROST",
+        "RSG", "SHW", "SNPS", "SPG", "SPOT", "SRE", "STT", "STX", "STZ", "SWK",
+        "SYK", "SYY", "TMUS", "TROW", "TRV", "TSCO", "TTWO", "UAL", "URI", "USB",
+        "VICI", "VLO", "VMC", "VRSK", "VRTX", "VST", "WAB", "WAT", "WBA", "WEC",
+        "WELL", "WDC", "WYNN", "XEL", "YUM", "ZBH", "ZBRA", "ZTS",
+        # === ETF - ดัชนีรวม ===
+        "SPY", "VOO", "IVV", "VTI", "QQQ", "IWM", "DIA", "MDY", "IJH", "IJR",
+        "VT", "ITOT", "SCHB", "SPTM",
+        # === ETF - กลุ่มเทคโนโลยี ===
+        "XLK", "VGT", "FTEC", "IGV", "SOXX", "SMH", "CIBR", "SKYY", "CLOU",
+        "ARKK", "ARKQ", "ARKG", "ARKW", "ARKF", "ROBO", "BOTZ", "AIQ",
+        # === ETF - พลังงาน / โภคภัณฑ์ ===
+        "XLE", "VDE", "IYE", "OIH", "XOP", "GLD", "IAU", "SLV", "GDX", "GDXJ",
+        "USO", "UNG", "DBC", "PDBC",
+        # === ETF - การเงิน / อสังหาริมทรัพย์ ===
+        "XLF", "VFH", "KBE", "KRE", "VNQ", "IYR", "SCHH",
+        # === ETF - สุขภาพ ===
+        "XLV", "VHT", "IYH", "IBB", "XBI",
+        # === ETF - สินค้า / อุตสาหกรรม ===
+        "XLP", "VDC", "XLI", "VIS", "XLB", "VAW",
+        # === ETF - พันธบัตร ===
+        "AGG", "BND", "TLT", "IEF", "SHY", "LQD", "HYG", "JNK", "TIP", "VTIP",
+        "GOVT", "MUB", "BSV", "BIV", "BLV", "VCSH", "VCIT",
+        # === ETF - ต่างประเทศ ===
+        "VEA", "VWO", "EFA", "EEM", "IDEV", "IEMG", "EWJ", "EWZ", "EWU", "EWG",
+        "EWC", "KWEB", "MCHI", "FXI", "INDA", "EWY", "EWT", "VGK", "VXUS",
+        # === ETF - เงินปันผล ===
+        "SCHD", "VYM", "DVY", "HDV", "SPHD", "DGRO", "VIG", "SDY", "NOBL",
+        # === ETF - เลเวอเรจ ===
+        "TQQQ", "SQQQ", "UPRO", "SPXU", "UVXY", "VXX", "SOXL", "SOXS",
+        # === Bitcoin / Crypto ETF ===
+        "IBIT", "FBTC", "BITB", "ARKB", "GBTC", "ETHA",
     ]
 
     with st.form("add_asset_form"):
