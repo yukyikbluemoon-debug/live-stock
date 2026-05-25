@@ -692,7 +692,16 @@ with tab4:
     else:
         st.info("ขณะนี้ไม่มีข่าวให้แสดง")
 
-
+@st.cache_data(ttl=300)
+def get_current_price(ticker):
+    """ดึงราคาปัจจุบันพร้อมแคชและจัดการข้อผิดพลาด"""
+    try:
+        df = yf.Ticker(ticker).history(period="1d", timeout=10)
+        if not df.empty and "Close" in df.columns:
+            return float(df["Close"].iloc[-1])
+        return None
+    except Exception:
+        return None
 with tab5:
     if "portfolio" not in st.session_state:
         st.session_state.portfolio = []
@@ -726,6 +735,7 @@ with tab5:
                     st.warning(f"ข้ามแถว {row[ticker_col]} — รูปแบบไม่ถูกต้อง")
             st.session_state.portfolio = portfolio
             st.success(f"นำเข้าพอร์ตโฟลิโอสำเร็จ! ({len(portfolio)} รายการ)")
+            st.rerun()
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาด: {e}")
 
