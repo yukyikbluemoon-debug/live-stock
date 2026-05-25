@@ -569,17 +569,26 @@ with tab5:
     # อัปโหลดพอร์ตจาก CSV
     uploaded_file = st.file_uploader("📥 นำเข้าพอร์ตโฟลิโอ CSV", type=["csv"])
     if uploaded_file:
-        imported_df = pd.read_csv(uploaded_file)
+        # 1. อ่านไฟล์พร้อมระบุ encoding รองรับภาษาไทยจาก Excel
+        imported_df = pd.read_csv(uploaded_file, encoding="utf-8-sig")
+        
+        # 2. ล้างช่องว่างหัว-ท้ายชื่อคอลัมน์ + แปลงชื่อไทยเป็นอังกฤษ
+        imported_df.columns = imported_df.columns.str.strip()
+        imported_df = imported_df.rename(columns={
+            "หุ้น": "ASSET",
+            "รายละเอียด": "DETAIL"
+        })
+        
+        # 3. สร้างลิสต์พอร์ตโฟลิโอ
         st.session_state.portfolio = [
             {
-                "ticker": row["ASSET"],
-                "quantity": int(row["DETAIL"].split()[0]),
-                "buy_price": float(row["DETAIL"].split("@ $")[1])
+                "ticker": str(row["ASSET"]).strip(),
+                "quantity": int(row["DETAIL"].strip().split()[0]),
+                "buy_price": float(row["DETAIL"].strip().split("@ $")[1])
             }
             for _, row in imported_df.iterrows()
         ]
-        st.success("นำเข้าพอร์ตโฟลิโอสำเร็จ!")
-
+        st.success("✅ นำเข้าพอร์ตโฟลิโอสำเร็จ!")
     # ฟอร์มเพิ่มสินทรัพย์ใหม่
     st.write("➕ เพิ่มสินทรัพย์ใหม่ในพอร์ตโฟลิโอ")
 
