@@ -381,6 +381,226 @@ def show_peer_analysis():
             )
             cols[(i * 2 + 1) % 4].container(border=True).altair_chart(delta_chart, use_container_width=True)
 
+    # ------------------------------------------------------------------
+    # CANDLESTICK + EMA + TRENDLINES section
+    # ------------------------------------------------------------------
+    st.markdown("---")
+    st.markdown("### 🕯️ กราฟแท่งเทียน + EMA + แนวรับ/แนวต้าน")
+    st.caption("เลือกหุ้นและตัวเลือกที่ต้องการแสดงบนกราฟ")
+
+    @st.cache_data(ttl=3600)
+    def load_candle_data(ticker: str, period: str) -> pd.DataFrame:
+        try:
+            df = yf.Ticker(ticker).history(period=period, interval="1d")
+            if df.empty:
+                return pd.DataFrame()
+            df = df[["Open", "High", "Low", "Close", "Volume"]].copy()
+            df.index = pd.to_datetime(df.index)
+            return df
+        except Exception:
+            return pd.DataFrame()
+
+    def calc_ema(series: pd.Series, span: int) -> pd.Series:
+        return series.ewm(span=span, adjust=False).mean()
+
+    def calc_support(df: pd.DataFrame, window: int = 20) -> float:
+        """แนวรับ = ค่าต่ำสุดของ Low ใน rolling window ช่วงท้าย"""
+        if df.empty or len(df) < window:
+            return float(df["Low"].min()) if not df.empty else 0.0
+        return float(df["Low"].rolling(window).min().dropna().iloc[-1])
+
+    def calc_trendline(df: pd.DataFrame, col: str = "Close", last_n: int = 60):
+        """
+        คำนวณ Linear regression ผ่านจุดสูงสุด (Downtrend) หรือต่ำสุด (Uptrend)
+        คืน (x0, y0, x1, y1) ในหน่วย index int สำหรับ plotly shape
+        """
+        import numpy as np
+        sub = df[col].tail(last_n)
+        if len(sub) < 10:
+            return None
+        x = np.arange(len(sub))
+        y = sub.values
+        # Uptrend line — ผ่านจุดต่ำสุด (local minima)
+        up_idx   = [i for i in range(1, len(y)-1) if y[i] <= y[i-1] and y[i] <= y[i+1]]
+        # Downtrend line — ผ่านจุดสูงสุด (local maxima)
+        dn_idx   = [i for i in range(1, len(y)-1) if y[i] >= y[i-1] and y[i] >= y[i+1]]
+        results = {}
+        for label, idx_list in [("up", up_idx), ("dn", dn_idx)]:
+            if len(idx_list) < 2:
+                results[label] = None
+                continue
+            xi = np.array(idx_list)
+            yi = y[xi]
+            m, b = np.polyfit(xi, yi, 1)
+            x_start = int(xi[0])
+            x_end   = len(sub) - 1
+            y_start = m * x_start + b
+            y_end   = m * x_end   + b
+            # แปลง index กลับเป็น datetime
+            dates = sub.index
+            results[label] = {
+                "x0": dates[x_start], "y0": float(y_start),
+                "x1": dates[x_end],   "y1": float(y_end),
+            }
+        return results
+
+    # ── ตัวเลือก ──
+    candle_ticker = st.selectbox(
+        "เลือกหุ้นสำหรับกราฟแท่งเทียน",
+        tickers,
+        key="candle_ticker",
+    )
+    candle_horizon = st.selectbox(
+        "ช่วงเวลา",
+        list(HORIZON_MAP.keys()),
+        index=list(HORIZON_MAP.keys()).index("6 เดือน"),
+        key="candle_horizon",
+    )
+
+    col_opts = st.columns(6)
+    show_ema20  = col_opts[0].checkbox("EMA 20",        value=True,  key="ema20")
+    show_ema50  = col_opts[1].checkbox("EMA 50",        value=True,  key="ema50")
+    show_ema100 = col_opts[2].checkbox("EMA 100",       value=False, key="ema100")
+    show_up     = col_opts[3].checkbox("Uptrend Line",  value=True,  key="uptrend")
+    show_dn     = col_opts[4].checkbox("Downtrend Line",value=True,  key="dntrend")
+    show_sup    = col_opts[5].checkbox("Support Level", value=True,  key="support")
+
+    cdf = load_candle_data(candle_ticker, HORIZON_MAP[candle_horizon])
+
+    if cdf.empty:
+        st.warning(f"ไม่มีข้อมูล OHLC สำหรับ {candle_ticker}")
+    else:
+        import numpy as np
+
+        # ── สร้างกราฟ ──
+        fig_c = go.Figure()
+
+        # แท่งเทียน
+        fig_c.add_trace(go.Candlestick(
+            x=cdf.index,
+            open=cdf["Open"], high=cdf["High"],
+            low=cdf["Low"],   close=cdf["Close"],
+            name="OHLC",
+            increasing_line_color="#26a69a",
+            decreasing_line_color="#ef5350",
+            increasing_fillcolor="#26a69a",
+            decreasing_fillcolor="#ef5350",
+        ))
+
+        # EMA lines
+        ema_cfg = [
+            (show_ema20,  20,  "#FFD700", "EMA 20"),
+            (show_ema50,  50,  "#FF8C00", "EMA 50"),
+            (show_ema100, 100, "#FF4500", "EMA 100"),
+        ]
+        for enabled, span, color, name in ema_cfg:
+            if enabled and len(cdf) >= span:
+                ema_vals = calc_ema(cdf["Close"], span)
+                fig_c.add_trace(go.Scatter(
+                    x=cdf.index, y=ema_vals,
+                    mode="lines", name=name,
+                    line=dict(color=color, width=1.5, dash="solid"),
+                ))
+
+        # Support level — เส้นแนวนอน
+        if show_sup:
+            sup_level = calc_support(cdf)
+            fig_c.add_hline(
+                y=sup_level,
+                line=dict(color="#00BFFF", width=1.5, dash="dot"),
+                annotation_text=f"Support ${sup_level:.2f}",
+                annotation_position="bottom right",
+                annotation_font_color="#00BFFF",
+            )
+
+        # Trendlines — Uptrend / Downtrend
+        trend_n = min(60, len(cdf))
+        trends = calc_trendline(cdf, last_n=trend_n)
+        if trends:
+            if show_up and trends.get("up"):
+                t = trends["up"]
+                fig_c.add_shape(type="line",
+                    x0=t["x0"], y0=t["y0"], x1=t["x1"], y1=t["y1"],
+                    line=dict(color="#00FF7F", width=1.5, dash="dash"),
+                )
+                fig_c.add_annotation(
+                    x=t["x1"], y=t["y1"],
+                    text="Uptrend", font=dict(color="#00FF7F", size=11),
+                    showarrow=False, xanchor="left",
+                )
+            if show_dn and trends.get("dn"):
+                t = trends["dn"]
+                fig_c.add_shape(type="line",
+                    x0=t["x0"], y0=t["y0"], x1=t["x1"], y1=t["y1"],
+                    line=dict(color="#FF6B6B", width=1.5, dash="dash"),
+                )
+                fig_c.add_annotation(
+                    x=t["x1"], y=t["y1"],
+                    text="Downtrend", font=dict(color="#FF6B6B", size=11),
+                    showarrow=False, xanchor="left",
+                )
+
+        # Volume bar (subplot ล่าง)
+        fig_c.add_trace(go.Bar(
+            x=cdf.index, y=cdf["Volume"],
+            name="Volume",
+            marker_color=[
+                "#26a69a" if c >= o else "#ef5350"
+                for c, o in zip(cdf["Close"], cdf["Open"])
+            ],
+            yaxis="y2",
+            showlegend=True,
+            opacity=0.4,
+        ))
+
+        fig_c.update_layout(
+            title=dict(text=f"{candle_ticker} — Candlestick Chart", font=dict(size=16)),
+            template="plotly_dark",
+            height=580,
+            xaxis=dict(
+                rangeslider=dict(visible=False),
+                type="date",
+            ),
+            yaxis=dict(title="ราคา ($)", domain=[0.25, 1.0], showgrid=True,
+                       gridcolor="rgba(255,255,255,0.08)"),
+            yaxis2=dict(title="Volume", domain=[0.0, 0.20], showgrid=False),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                        xanchor="right", x=1),
+            margin=dict(l=10, r=10, t=60, b=10),
+            plot_bgcolor="rgba(0,0,0,0)",
+            paper_bgcolor="rgba(0,0,0,0)",
+        )
+
+        st.plotly_chart(fig_c, use_container_width=True)
+
+        # ── สรุปตัวเลข EMA + Support ──
+        with st.expander("📋 ค่า EMA และ Support ปัจจุบัน", expanded=False):
+            last_close = float(cdf["Close"].iloc[-1])
+            summary_rows = []
+            for span, lbl in [(20, "EMA 20"), (50, "EMA 50"), (100, "EMA 100")]:
+                if len(cdf) >= span:
+                    val = float(calc_ema(cdf["Close"], span).iloc[-1])
+                    diff_pct = (last_close - val) / val * 100
+                    signal = "🟢 อยู่เหนือ" if last_close > val else "🔴 อยู่ใต้"
+                    summary_rows.append({
+                        "ตัวชี้วัด": lbl,
+                        "ค่า": f"${val:.2f}",
+                        "ราคาปัจจุบัน vs EMA": f"{diff_pct:+.2f}%",
+                        "สัญญาณ": signal,
+                    })
+            if show_sup:
+                summary_rows.append({
+                    "ตัวชี้วัด": "Support",
+                    "ค่า": f"${calc_support(cdf):.2f}",
+                    "ราคาปัจจุบัน vs EMA": "-",
+                    "สัญญาณ": "🔵 แนวรับ",
+                })
+            st.dataframe(
+                pd.DataFrame(summary_rows).set_index("ตัวชี้วัด"),
+                use_container_width=True,
+            )
+
+    # ------------------------------------------------------------------
     st.markdown("## ข้อมูลดิบ")
     st.dataframe(data)
 
