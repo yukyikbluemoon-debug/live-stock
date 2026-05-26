@@ -245,12 +245,31 @@ def next_saturday(start_date=None) -> datetime:
 # ==================================================================
 def show_peer_analysis():
     DEFAULT_TICKERS = ["AAPL", "MSFT", "GOOGL", "NVDA", "AMZN", "TSLA", "META"]
+
+    # เซฟ selection ใน session_state → ไม่หายเมื่อ switch tab
+    if "peer_tickers" not in st.session_state:
+        st.session_state.peer_tickers = DEFAULT_TICKERS
+    if "peer_horizon" not in st.session_state:
+        st.session_state.peer_horizon = "6 เดือน"
+
     tickers = st.multiselect(
         "เลือกหุ้นที่ต้องการเปรียบเทียบ",
-        STOCKS,                    # ← ใช้ STOCKS list ระดับ module แทน
-        default=DEFAULT_TICKERS,
+        STOCKS,
+        default=st.session_state.peer_tickers,
+        key="peer_tickers_widget",
     )
-    horizon = st.selectbox("เลือกช่วงเวลา", list(HORIZON_MAP.keys()), index=2)
+    # sync กลับเข้า session_state ทุกครั้งที่ค่าเปลี่ยน
+    if tickers != st.session_state.peer_tickers:
+        st.session_state.peer_tickers = tickers
+
+    horizon = st.selectbox(
+        "เลือกช่วงเวลา",
+        list(HORIZON_MAP.keys()),
+        index=list(HORIZON_MAP.keys()).index(st.session_state.peer_horizon),
+        key="peer_horizon_widget",
+    )
+    if horizon != st.session_state.peer_horizon:
+        st.session_state.peer_horizon = horizon
 
     if not tickers:
         st.info("กรุณาเลือกหุ้นเพื่อเปรียบเทียบ")
