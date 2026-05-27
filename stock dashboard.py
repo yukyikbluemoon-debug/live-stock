@@ -121,20 +121,6 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
     รวม longName และ sector ไว้ด้วย — ไม่ต้องเรียก .info ซ้ำในที่อื่น
     จัดการ YFRateLimitError ด้วย exponential backoff สูงสุด 3 รอบ
     """
-    import time as _time
-	# ==================================================================
-	# 🛡️ GLOBAL RATE LIMITER FOR YFINANCE
-	# ==================================================================
-    _last_yf_call = 0
-    _YF_MIN_INTERVAL = 1.2  # วินาทีขั้นต่ำระหว่างการเรียก yfinance
-
-    def _yf_wait():
-        """รอให้ผ่านช่วงเวลาที่กำหนดก่อนเรียก yfinance ครั้งถัดไป"""
-        global _last_yf_call
-        elapsed = _time.time() - _last_yf_call
-        if elapsed < _YF_MIN_INTERVAL:
-             _time.sleep(_YF_MIN_INTERVAL - elapsed)
-        _last_yf_call = _time.time()
     from yfinance.exceptions import YFRateLimitError
 
     empty_df  = pd.DataFrame(columns=["Open", "High", "Low", "Close"])
