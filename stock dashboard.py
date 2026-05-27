@@ -116,55 +116,86 @@ HORIZON_MAP = {
 # ------------------------------------------------------------------
 @st.cache_data(ttl=3600, max_entries=50)
 def fetch_stock_details(ticker: str, period: str = "1mo"):
-    try:
-        stock = yf.Ticker(ticker)
-        info = stock.info
+    """
+    ดึงข้อมูลหุ้นทั้งหมดใน 1 ฟังก์ชัน + cache 1 ชั่วโมง
+    รวม longName และ sector ไว้ด้วย — ไม่ต้องเรียก .info ซ้ำในที่อื่น
+    จัดการ YFRateLimitError ด้วย exponential backoff สูงสุด 3 รอบ
+    """
+    import time as _time
+    from yfinance.exceptions import YFRateLimitError
 
-        def safe_get(key, default="N/A"):
-            val = info.get(key, default)
-            return val if val is not None else default
+    empty_df  = pd.DataFrame(columns=["Open", "High", "Low", "Close"])
+    empty_det = {
+        "price": "N/A", "change_pct": 0.0, "market_cap": "N/A",
+        "pe_ratio": "N/A", "eps": "N/A", "high_52w": "N/A",
+        "low_52w": "N/A", "volume": "N/A", "dividend_yield": "N/A",
+        "long_name": ticker, "sector": "N/A",
+    }
 
-        price = safe_get("regularMarketPrice")
-        change_pct = safe_get("regularMarketChangePercent", 0.0)
-        if not isinstance(change_pct, (int, float)):
-            change_pct = 0.0
-
-        div_yield = safe_get("dividendYield")
-        if not isinstance(div_yield, (int, float)):
-            div_yield = "N/A"
-
-        details = {
-            "price":          price,
-            "change_pct":     float(change_pct),
-            "market_cap":     safe_get("marketCap"),
-            "pe_ratio":       safe_get("trailingPE"),
-            "eps":            safe_get("trailingEps"),
-            "high_52w":       safe_get("fiftyTwoWeekHigh"),
-            "low_52w":        safe_get("fiftyTwoWeekLow"),
-            "volume":         safe_get("volume"),
-            "dividend_yield": div_yield,
-        }
-
-        cols_needed = {"Open", "High", "Low", "Close"}
+    for attempt in range(3):
         try:
-            history = stock.history(period=period, interval="1d")
-            if history.empty or not cols_needed.issubset(history.columns):
-                history = pd.DataFrame(columns=list(cols_needed))
-            else:
-                history = history[list(cols_needed)]
-        except Exception:
-            history = pd.DataFrame(columns=list(cols_needed))
+            stock = yf.Ticker(ticker)
+            info  = stock.fast_info          # เร็วกว่า .info — ดึงเฉพาะ price fields
+            # .info ยังต้องการสำหรับ PE/EPS/sector/longName — เรียกแค่ครั้งเดียวต่อ cache cycle
+            full  = stock.info
 
-        return details, history
+            def safe_get(key, default="N/A"):
+                val = full.get(key, default)
+                return val if val is not None else default
 
-    except Exception as e:
-        st.warning(f"ดึงข้อมูล {ticker} ไม่สำเร็จ: {e}")
-        empty = pd.DataFrame(columns=["Open", "High", "Low", "Close"])
-        return {
-            "price": "N/A", "change_pct": 0.0, "market_cap": "N/A",
-            "pe_ratio": "N/A", "eps": "N/A", "high_52w": "N/A",
-            "low_52w": "N/A", "volume": "N/A", "dividend_yield": "N/A",
-        }, empty
+            price      = info.last_price or safe_get("regularMarketPrice")
+            prev_close = info.previous_close or safe_get("previousClose", 0.0)
+            try:
+                change_pct = ((float(price) - float(prev_close)) / float(prev_close) * 100) if prev_close else 0.0
+            except Exception:
+                change_pct = 0.0
+
+            div_yield = safe_get("dividendYield")
+            if not isinstance(div_yield, (int, float)):
+                div_yield = "N/A"
+
+            details = {
+                "price":          round(float(price), 2) if isinstance(price, (int, float)) else "N/A",
+                "change_pct":     round(change_pct, 2),
+                "market_cap":     safe_get("marketCap"),
+                "pe_ratio":       safe_get("trailingPE"),
+                "eps":            safe_get("trailingEps"),
+                "high_52w":       safe_get("fiftyTwoWeekHigh"),
+                "low_52w":        safe_get("fiftyTwoWeekLow"),
+                "volume":         safe_get("volume"),
+                "dividend_yield": div_yield,
+                "long_name":      safe_get("longName", ticker),
+                "sector":         safe_get("sector", "N/A"),
+            }
+
+            cols_needed = {"Open", "High", "Low", "Close"}
+            try:
+                history = stock.history(period=period, interval="1d")
+                if history.empty or not cols_needed.issubset(history.columns):
+                    history = empty_df
+                else:
+                    history = history[list(cols_needed)]
+            except YFRateLimitError:
+                raise                          # re-raise เพื่อให้ backoff loop จัดการ
+            except Exception:
+                history = empty_df
+
+            return details, history
+
+        except YFRateLimitError:
+            if attempt < 2:
+                wait = 2 ** attempt            # 1s, 2s
+                _time.sleep(wait)
+                continue
+            # ครบ 3 รอบแล้ว — แสดง warning ไม่ crash
+            st.warning(f"⚠️ Yahoo Finance rate limit — ข้อมูล {ticker} อาจแสดงไม่ครบ กรุณารอสักครู่แล้ว refresh")
+            return empty_det, empty_df
+
+        except Exception as e:
+            st.warning(f"ดึงข้อมูล {ticker} ไม่สำเร็จ: {e}")
+            return empty_det, empty_df
+
+    return empty_det, empty_df
 
 
 # ------------------------------------------------------------------
@@ -173,10 +204,13 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
 # ------------------------------------------------------------------
 @st.cache_data(ttl=300, max_entries=200)
 def get_current_price(ticker: str) -> float | None:
+    from yfinance.exceptions import YFRateLimitError
     try:
-        df = yf.Ticker(ticker).history(period="1d", timeout=10)
-        if not df.empty and "Close" in df.columns:
-            return float(df["Close"].iloc[-1])
+        fi = yf.Ticker(ticker).fast_info
+        if fi.last_price:
+            return round(float(fi.last_price), 2)
+    except YFRateLimitError:
+        return None   # silent — portfolio ยังแสดงได้ แค่ราคา N/A
     except Exception:
         pass
     return None
@@ -192,15 +226,18 @@ SIDEBAR_SYMBOLS = {
 
 @st.cache_data(ttl=3600)
 def get_daily_details(sym_dict: dict) -> dict:
-    """ดึงราคา 7 หุ้นใน batch request เดียว — เร็วกว่า loop 7x"""
+    """ดึงราคา 7 หุ้นใน batch request เดียว + จัดการ rate limit"""
+    from yfinance.exceptions import YFRateLimitError
     tickers_list = list(sym_dict.values())
     names_list   = list(sym_dict.keys())
     details = {}
     try:
         raw = yf.download(
             tickers_list, period="2d", interval="1d",
-            auto_adjust=True, progress=False, threads=True,
+            auto_adjust=True, progress=False, threads=False,  # threads=False ลด concurrent request
         )
+        if raw.empty:
+            return details
         close = raw["Close"]
         open_ = raw["Open"]
         for name, ticker in zip(names_list, tickers_list):
@@ -208,9 +245,11 @@ def get_daily_details(sym_dict: dict) -> dict:
                 c = float(close[ticker].dropna().iloc[-1])
                 o = float(open_[ticker].dropna().iloc[-1])
                 pct = ((c - o) / o * 100) if o else 0.0
-                details[name] = {"price": c, "change_pct": pct}
+                details[name] = {"price": round(c, 2), "change_pct": round(pct, 2)}
             except Exception:
                 pass
+    except YFRateLimitError:
+        st.sidebar.warning("⚠️ Yahoo Finance rate limit — ข้อมูล sidebar อาจไม่อัปเดต")
     except Exception:
         pass
     return details
@@ -309,7 +348,7 @@ def show_peer_analysis():
         try:
             raw = yf.download(
                 list(tickers_tuple), period=period, interval="1d",
-                auto_adjust=True, progress=False, threads=True,
+                auto_adjust=True, progress=False, threads=False,  # threads=False ลด concurrent request
             )
             if raw.empty:
                 return pd.DataFrame()
@@ -681,12 +720,11 @@ with tab1:
     st.subheader("🔍 ค้นหาหุ้น")
     selected_ticker = st.selectbox("เลือกบริษัท", STOCKS)
 
-    stock        = yf.Ticker(selected_ticker)
-    company_name = stock.info.get("longName", selected_ticker)
-    st.markdown(f"## {company_name} ({selected_ticker})")
-
     time_range = st.selectbox("เลือกช่วงเวลา", list(HORIZON_MAP.keys()), index=1)
+    # fetch_stock_details มี cache — ไม่ยิง HTTP ซ้ำ + ดึง longName/sector ในครั้งเดียว
     details, history = fetch_stock_details(selected_ticker, HORIZON_MAP[time_range])
+    company_name = details.get("long_name", selected_ticker)
+    st.markdown(f"## {company_name} ({selected_ticker})")
 
     if not history.empty and {"Open", "High", "Low", "Close"}.issubset(history.columns):
         col_chart, col_metrics = st.columns([4, 1])
@@ -729,7 +767,7 @@ with tab1:
         mc = details["market_cap"]
         st.metric("🏦 มูลค่าตลาด", f"${mc:,}" if isinstance(mc, (int, float)) else "N/A")
     with row1[2].container(border=True):
-        st.metric("🏷️ กลุ่มธุรกิจ", stock.info.get("sector", "N/A"))
+        st.metric("🏷️ กลุ่มธุรกิจ", details.get("sector", "N/A"))
 
     row2 = st.columns(3)
     with row2[0].container(border=True):
