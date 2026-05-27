@@ -370,7 +370,7 @@ def show_peer_analysis():
         if not tickers_tuple:
             return pd.DataFrame()
         try:
-			_yf_wait()
+            _yf_wait()
             raw = yf.download(
                 list(tickers_tuple), period=period, interval="1d",
                 auto_adjust=True, progress=False, threads=False,  # threads=False ลด concurrent request
