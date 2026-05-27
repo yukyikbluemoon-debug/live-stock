@@ -147,7 +147,7 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
 
     for attempt in range(3):
         try:
-			_yf_wait()
+            _yf_wait()
             stock = yf.Ticker(ticker)
             info  = stock.fast_info          # เร็วกว่า .info — ดึงเฉพาะ price fields
             # .info ยังต้องการสำหรับ PE/EPS/sector/longName — เรียกแค่ครั้งเดียวต่อ cache cycle
