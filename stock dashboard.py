@@ -10,6 +10,8 @@ from streamlit_echarts import st_echarts
 import plotly.graph_objects as go
 import streamlit.components.v1 as components
 
+import numpy as np
+
 # Page config
 st.set_page_config(page_title="📈 แดชบอร์ดหุ้น Live", layout="wide")
 
@@ -112,7 +114,7 @@ HORIZON_MAP = {
 # BUG FIX #3: fetch_stock_details — ตรวจ N/A ก่อน format ทุก field
 # เดิม: ไม่ตรวจ history ว่าง → KeyError; dividend_yield ไม่ตรวจ type
 # ------------------------------------------------------------------
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, max_entries=50)
 def fetch_stock_details(ticker: str, period: str = "1mo"):
     try:
         stock = yf.Ticker(ticker)
@@ -169,7 +171,7 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
 # BUG FIX #4: get_current_price — cache + ตรวจ None ก่อนคืนค่า
 # ใช้แทนการเรียก yf.Ticker().history() ตรงๆ ใน portfolio loop
 # ------------------------------------------------------------------
-@st.cache_data(ttl=300)
+@st.cache_data(ttl=300, max_entries=200)
 def get_current_price(ticker: str) -> float | None:
     try:
         df = yf.Ticker(ticker).history(period="1d", timeout=10)
@@ -190,34 +192,58 @@ SIDEBAR_SYMBOLS = {
 
 @st.cache_data(ttl=3600)
 def get_daily_details(sym_dict: dict) -> dict:
+    """ดึงราคา 7 หุ้นใน batch request เดียว — เร็วกว่า loop 7x"""
+    tickers_list = list(sym_dict.values())
+    names_list   = list(sym_dict.keys())
     details = {}
-    for name, ticker in sym_dict.items():
-        try:
-            hist = yf.Ticker(ticker).history(period="1d")
-            if not hist.empty:
-                open_p  = float(hist["Open"].iloc[0])
-                close_p = float(hist["Close"].iloc[0])
-                pct     = ((close_p - open_p) / open_p * 100) if open_p else 0.0
-                details[name] = {"price": close_p, "change_pct": pct}
-        except Exception:
-            pass
+    try:
+        raw = yf.download(
+            tickers_list, period="2d", interval="1d",
+            auto_adjust=True, progress=False, threads=True,
+        )
+        close = raw["Close"]
+        open_ = raw["Open"]
+        for name, ticker in zip(names_list, tickers_list):
+            try:
+                c = float(close[ticker].dropna().iloc[-1])
+                o = float(open_[ticker].dropna().iloc[-1])
+                pct = ((c - o) / o * 100) if o else 0.0
+                details[name] = {"price": c, "change_pct": pct}
+            except Exception:
+                pass
+    except Exception:
+        pass
     return details
 
 
 @st.cache_data(ttl=36000)
 def fetch_metrics() -> pd.DataFrame:
+    """ดึง PE/EPS/Rating ทั้ง 7 หุ้นใน Tickers batch — ลด round-trip"""
+    symbols_list = list(SIDEBAR_SYMBOLS.values())
+    names_list   = list(SIDEBAR_SYMBOLS.keys())
     rows = []
-    for name, symbol in SIDEBAR_SYMBOLS.items():
-        try:
-            info = yf.Ticker(symbol).info
-            rows.append({
-                "บริษัท":             name,
-                "อัตราส่วน PE":       info.get("trailingPE", "N/A"),
-                "กำไรต่อหุ้น (EPS)":  info.get("trailingEps", "N/A"),
-                "คะแนนนักวิเคราะห์":  info.get("recommendationMean", "N/A"),
-            })
-        except Exception as e:
-            st.error(f"เกิดข้อผิดพลาดในการดึงข้อมูล {name}: {e}")
+    try:
+        batch = yf.Tickers(" ".join(symbols_list))
+        for name, symbol in zip(names_list, symbols_list):
+            try:
+                info = batch.tickers[symbol].fast_info
+                # fast_info ไม่มี PE/EPS ต้องใช้ .info แต่ cache ttl=10h ไม่บ่อย
+                full = batch.tickers[symbol].info
+                rows.append({
+                    "บริษัท":             name,
+                    "อัตราส่วน PE":       full.get("trailingPE", "N/A"),
+                    "กำไรต่อหุ้น (EPS)":  full.get("trailingEps", "N/A"),
+                    "คะแนนนักวิเคราะห์":  full.get("recommendationMean", "N/A"),
+                })
+            except Exception:
+                rows.append({
+                    "บริษัท": name,
+                    "อัตราส่วน PE": "N/A",
+                    "กำไรต่อหุ้น (EPS)": "N/A",
+                    "คะแนนนักวิเคราะห์": "N/A",
+                })
+    except Exception as e:
+        st.error(f"fetch_metrics error: {e}")
     return pd.DataFrame(rows)
 
 
@@ -277,16 +303,26 @@ def show_peer_analysis():
 
     @st.cache_data(ttl=21600)
     def load_peer_data(tickers_tuple: tuple, period: str) -> pd.DataFrame:
-        frames = []
-        for ticker in tickers_tuple:
-            try:
-                df = yf.Ticker(ticker).history(period=period)[["Close"]]
-                if not df.empty:
-                    df.columns = [ticker]
-                    frames.append(df)
-            except Exception:
-                continue
-        return pd.concat(frames, axis=1) if frames else pd.DataFrame()
+        """ดึงราคา Close ทุก ticker ใน batch request เดียว"""
+        if not tickers_tuple:
+            return pd.DataFrame()
+        try:
+            raw = yf.download(
+                list(tickers_tuple), period=period, interval="1d",
+                auto_adjust=True, progress=False, threads=True,
+            )
+            if raw.empty:
+                return pd.DataFrame()
+            # yf.download คืน MultiIndex columns เมื่อ > 1 ticker
+            if isinstance(raw.columns, pd.MultiIndex):
+                close = raw["Close"].copy()
+            else:
+                # ticker เดียว — columns แบน
+                close = raw[["Close"]].copy()
+                close.columns = list(tickers_tuple)
+            return close
+        except Exception:
+            return pd.DataFrame()
 
     # tuple เพื่อให้ cache key hashable
     data = load_peer_data(tuple(tickers), HORIZON_MAP[horizon])
@@ -317,29 +353,54 @@ def show_peer_analysis():
         use_container_width=True,
     )
 
+    # ── sparkline cards ──
+    # ดึงราคาจาก data ที่ load_peer_data โหลดมาแล้ว (ไม่ยิง HTTP ใหม่)
+    # info เรียกครั้งเดียวต่อ ticker + cache 1 ชั่วโมง
+    @st.cache_data(ttl=3600)
+    def get_ticker_quote(ticker: str) -> dict:
+        try:
+            fi = yf.Ticker(ticker).fast_info   # fast_info เร็วกว่า .info มาก
+            return {
+                "price":      round(float(fi.last_price), 2) if fi.last_price else None,
+                "prev_close": round(float(fi.previous_close), 2) if fi.previous_close else None,
+            }
+        except Exception:
+            return {"price": None, "prev_close": None}
+
     with st.expander("💵 ราคาปัจจุบันของบริษัทที่เลือก", expanded=True):
         for i in range(0, len(tickers), 4):
             row = st.columns(min(4, len(tickers) - i))
             for j, ticker in enumerate(tickers[i : i + 4]):
                 try:
-                    info = yf.Ticker(ticker).info
-                    price      = info.get("currentPrice", "N/A")
-                    change_pct = info.get("regularMarketChangePercent", 0.0) or 0.0
-                    hist       = yf.Ticker(ticker).history(period="1mo")["Close"]
-                    color      = "green" if hist.iloc[-1] > hist.iloc[0] else "red"
-                    sparkline_data = pd.DataFrame({"วันที่": hist.index, "ราคา": hist.values})
-                    with row[j].container(border=True):
-                        st.metric(label=ticker, value=f"${price}", delta=f"{change_pct:.2f}%")
-                        st.altair_chart(
-                            alt.Chart(sparkline_data)
-                            .mark_line(color=color)
-                            .encode(
-                                x=alt.X("วันที่:T", axis=None),
-                                y=alt.Y("ราคา:Q", scale=alt.Scale(domain=[hist.min(), hist.max()]), axis=None),
+                    quote = get_ticker_quote(ticker)
+                    price = quote["price"]
+                    prev  = quote["prev_close"]
+                    change_pct = ((price - prev) / prev * 100) if price and prev else 0.0
+
+                    # ใช้ data ที่โหลดมาแล้วแทนยิง HTTP ใหม่
+                    if ticker in data.columns:
+                        hist  = data[ticker].dropna()
+                        color = "green" if hist.iloc[-1] > hist.iloc[0] else "red"
+                        sparkline_data = pd.DataFrame({"วันที่": hist.index, "ราคา": hist.values})
+                        with row[j].container(border=True):
+                            st.metric(label=ticker,
+                                      value=f"${price}" if price else "N/A",
+                                      delta=f"{change_pct:.2f}%")
+                            st.altair_chart(
+                                alt.Chart(sparkline_data)
+                                .mark_line(color=color)
+                                .encode(
+                                    x=alt.X("วันที่:T", axis=None),
+                                    y=alt.Y("ราคา:Q",
+                                            scale=alt.Scale(domain=[float(hist.min()), float(hist.max())]),
+                                            axis=None),
+                                )
+                                .properties(height=100),
+                                use_container_width=True,
                             )
-                            .properties(height=100),
-                            use_container_width=True,
-                        )
+                    else:
+                        with row[j].container(border=True):
+                            st.metric(label=ticker, value="N/A", delta="N/A")
                 except Exception:
                     with row[j].container(border=True):
                         st.metric(label=ticker, value="N/A", delta="N/A")
@@ -470,7 +531,7 @@ def show_peer_analysis():
     if cdf.empty:
         st.warning(f"ไม่มีข้อมูล OHLC สำหรับ {candle_ticker}")
     else:
-        import numpy as np
+        # numpy imported at module level
 
         # ── สร้างกราฟ ──
         fig_c = go.Figure()
