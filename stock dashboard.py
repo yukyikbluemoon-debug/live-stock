@@ -125,18 +125,16 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
 	# ==================================================================
 	# 🛡️ GLOBAL RATE LIMITER FOR YFINANCE
 	# ==================================================================
+    _last_yf_call = 0
+    _YF_MIN_INTERVAL = 1.2  # วินาทีขั้นต่ำระหว่างการเรียก yfinance
 
-
-	_last_yf_call = 0
-	_YF_MIN_INTERVAL = 1.2  # วินาทีขั้นต่ำระหว่างการเรียก yfinance
-
-	def _yf_wait():
+    def _yf_wait():
 		"""รอให้ผ่านช่วงเวลาที่กำหนดก่อนเรียก yfinance ครั้งถัดไป"""
-		global _last_yf_call
-		elapsed = _time.time() - _last_yf_call
-		if elapsed < _YF_MIN_INTERVAL:
-			_time.sleep(_YF_MIN_INTERVAL - elapsed)
-		_last_yf_call = _time.time()
+        global _last_yf_call
+        elapsed = _time.time() - _last_yf_call
+        if elapsed < _YF_MIN_INTERVAL:
+             _time.sleep(_YF_MIN_INTERVAL - elapsed)
+        _last_yf_call = _time.time()
     from yfinance.exceptions import YFRateLimitError
 
     empty_df  = pd.DataFrame(columns=["Open", "High", "Low", "Close"])
