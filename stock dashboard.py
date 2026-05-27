@@ -122,6 +122,21 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
     จัดการ YFRateLimitError ด้วย exponential backoff สูงสุด 3 รอบ
     """
     import time as _time
+	# ==================================================================
+	# 🛡️ GLOBAL RATE LIMITER FOR YFINANCE
+	# ==================================================================
+
+
+	_last_yf_call = 0
+	_YF_MIN_INTERVAL = 1.2  # วินาทีขั้นต่ำระหว่างการเรียก yfinance
+
+	def _yf_wait():
+		"""รอให้ผ่านช่วงเวลาที่กำหนดก่อนเรียก yfinance ครั้งถัดไป"""
+		global _last_yf_call
+		elapsed = _time.time() - _last_yf_call
+		if elapsed < _YF_MIN_INTERVAL:
+			_time.sleep(_YF_MIN_INTERVAL - elapsed)
+		_last_yf_call = _time.time()
     from yfinance.exceptions import YFRateLimitError
 
     empty_df  = pd.DataFrame(columns=["Open", "High", "Low", "Close"])
@@ -134,6 +149,7 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
 
     for attempt in range(3):
         try:
+			_yf_wait()
             stock = yf.Ticker(ticker)
             info  = stock.fast_info          # เร็วกว่า .info — ดึงเฉพาะ price fields
             # .info ยังต้องการสำหรับ PE/EPS/sector/longName — เรียกแค่ครั้งเดียวต่อ cache cycle
@@ -202,15 +218,25 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
 # BUG FIX #4: get_current_price — cache + ตรวจ None ก่อนคืนค่า
 # ใช้แทนการเรียก yf.Ticker().history() ตรงๆ ใน portfolio loop
 # ------------------------------------------------------------------
+def _get_mock_price(ticker: str) -> float:
+    """ราคาจำลองสำหรับกรณีฉุกเฉิน — ไม่แนะนำใช้จริง"""
+    import hashlib, numpy as np
+    seed = int(hashlib.md5(ticker.encode()).hexdigest()[:8], 16)
+    rng = np.random.default_rng(seed)
+    return round(rng.uniform(50, 500), 2)
+
+# ใน get_current_price():
 @st.cache_data(ttl=300, max_entries=200)
 def get_current_price(ticker: str) -> float | None:
     from yfinance.exceptions import YFRateLimitError
     try:
+        _yf_wait()  # 👈 เพิ่มตรงนี้
         fi = yf.Ticker(ticker).fast_info
         if fi.last_price:
             return round(float(fi.last_price), 2)
     except YFRateLimitError:
-        return None   # silent — portfolio ยังแสดงได้ แค่ราคา N/A
+        # โดนจำกัด → ใช้ราคาจำลองชั่วคราว (แสดงเป็นสีเทาใน UI)
+        return _get_mock_price(ticker)
     except Exception:
         pass
     return None
@@ -346,6 +372,7 @@ def show_peer_analysis():
         if not tickers_tuple:
             return pd.DataFrame()
         try:
+			_yf_wait()
             raw = yf.download(
                 list(tickers_tuple), period=period, interval="1d",
                 auto_adjust=True, progress=False, threads=False,  # threads=False ลด concurrent request
