@@ -129,7 +129,7 @@ def fetch_stock_details(ticker: str, period: str = "1mo"):
     _YF_MIN_INTERVAL = 1.2  # วินาทีขั้นต่ำระหว่างการเรียก yfinance
 
     def _yf_wait():
-		"""รอให้ผ่านช่วงเวลาที่กำหนดก่อนเรียก yfinance ครั้งถัดไป"""
+        """รอให้ผ่านช่วงเวลาที่กำหนดก่อนเรียก yfinance ครั้งถัดไป"""
         global _last_yf_call
         elapsed = _time.time() - _last_yf_call
         if elapsed < _YF_MIN_INTERVAL:
