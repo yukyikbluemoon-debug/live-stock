@@ -557,25 +557,119 @@ def show_peer_analysis():
         key="candle_horizon",
     )
 
+    # ── Tooltip descriptions ──
+    TT = {
+        "ema20":   ("EMA 20 | ค่าเฉลี่ยเคลื่อนที่ Exponential 20 วัน "
+                    "| ตอบสนองไวต่อราคา ใช้จับแนวโน้มระยะสั้น "
+                    "| ราคาเหนือ EMA20 = momentum ขาขึ้น / ใต้ = ขาลง"),
+        "ema50":   ("EMA 50 | ค่าเฉลี่ยเคลื่อนที่ Exponential 50 วัน "
+                    "| แนวโน้มระยะกลาง 2-3 เดือน "
+                    "| Golden Cross: EMA20 ตัด EMA50 ขึ้น = สัญญาณซื้อ "
+                    "| Death Cross: EMA20 ตัด EMA50 ลง = สัญญาณขาย"),
+        "ema100":  ("EMA 100 | ค่าเฉลี่ยเคลื่อนที่ Exponential 100 วัน "
+                    "| แนวโน้มระยะยาว ~5 เดือน "
+                    "| มักใช้เป็นแนวรับ/แนวต้านขนาดใหญ่"),
+        "uptrend": ("Uptrend Line | เส้นตรง Linear Regression ผ่านจุด Low ต่ำสุด 60 แท่ง "
+                    "| แสดงทิศทางขาขึ้น "
+                    "| ราคาสัมผัสเส้นนี้ = Buy Zone "
+                    "| ราคาทะลุลงมา = สัญญาณเตือน"),
+        "dntrend": ("Downtrend Line | เส้นตรง Linear Regression ผ่านจุด High สูงสุด 60 แท่ง "
+                    "| แสดงทิศทางขาลง "
+                    "| ราคาสัมผัสเส้นนี้ = Sell Zone "
+                    "| ราคาทะลุขึ้นไป = Breakout สัญญาณบวก"),
+        "sup":     ("Support Level | ราคาต่ำสุดของ Low ใน 20 แท่งล่าสุด "
+                    "| โซนที่แรงซื้อมักเข้ามา ราคามักเด้งกลับ "
+                    "| ถ้าหลุดลงไป Support กลายเป็น Resistance"),
+        "res":     ("Resistance Level | ราคาสูงสุดของ High ใน 20 แท่งล่าสุด "
+                    "| โซนที่แรงขายมักเข้ามา ราคามักย่อกลับ "
+                    "| ถ้าทะลุขึ้นไปได้ Resistance กลายเป็น Support"),
+        "bb":      ("Bollinger Bands (20 period, 2sigma) "
+                    "| Upper=SMA20+2xSD  Mid=SMA20  Lower=SMA20-2xSD "
+                    "| ราคาแตะ Upper = Overbought | ราคาแตะ Lower = Oversold "
+                    "| Bands แคบ = กำลังสะสมพลัง | Bands กว้าง = ความผันผวนสูง"),
+        "rsi":     ("RSI (14 วัน) | วัด momentum 0-100 "
+                    "| RSI > 70 = Overbought | RSI < 30 = Oversold | RSI = 50 = สมดุล "
+                    "| Divergence: ราคาทำ High ใหม่แต่ RSI ไม่ทำ = สัญญาณพลิกกลับ"),
+        "vwap":    ("VWAP | ราคาเฉลี่ยถ่วงน้ำหนักด้วยปริมาณซื้อขาย "
+                    "| Benchmark หลักของสถาบันและ day trader "
+                    "| เหนือ VWAP = แรงซื้อครองตลาด | ใต้ VWAP = แรงขายครองตลาด"),
+    }
+    # ── Checkbox row 1: EMA + Trend ──
+    st.markdown("**📈 Moving Average & Trend**")
     col_opts = st.columns(6)
-    show_ema20  = col_opts[0].checkbox("EMA 20",        value=True,  key="ema20")
-    show_ema50  = col_opts[1].checkbox("EMA 50",        value=True,  key="ema50")
-    show_ema100 = col_opts[2].checkbox("EMA 100",       value=False, key="ema100")
-    show_up     = col_opts[3].checkbox("Uptrend Line",  value=True,  key="uptrend")
-    show_dn     = col_opts[4].checkbox("Downtrend Line",value=True,  key="dntrend")
-    show_sup    = col_opts[5].checkbox("Support Level", value=True,  key="support")
+    show_ema20  = col_opts[0].checkbox("EMA 20",         value=True,  key="ema20",   help=TT["ema20"])
+    show_ema50  = col_opts[1].checkbox("EMA 50",         value=True,  key="ema50",   help=TT["ema50"])
+    show_ema100 = col_opts[2].checkbox("EMA 100",        value=False, key="ema100",  help=TT["ema100"])
+    show_up     = col_opts[3].checkbox("Uptrend Line",   value=True,  key="uptrend", help=TT["uptrend"])
+    show_dn     = col_opts[4].checkbox("Downtrend Line", value=True,  key="dntrend", help=TT["dntrend"])
+    show_vwap   = col_opts[5].checkbox("VWAP",           value=False, key="vwap",    help=TT["vwap"])
+
+    # ── Checkbox row 2: Support/Resistance + BB + RSI ──
+    st.markdown("**📊 Support / Resistance / Oscillator**")
+    col_opts2 = st.columns(6)
+    show_sup    = col_opts2[0].checkbox("Support Level",   value=True,  key="support", help=TT["sup"])
+    show_res    = col_opts2[1].checkbox("Resistance Level",value=True,  key="resist",  help=TT["res"])
+    show_bb     = col_opts2[2].checkbox("Bollinger Bands", value=True,  key="bb",      help=TT["bb"])
+    show_rsi    = col_opts2[3].checkbox("RSI (14)",        value=True,  key="rsi",     help=TT["rsi"])
+    _unused2    = col_opts2[4].empty()
+    _unused3    = col_opts2[5].empty()
 
     cdf = load_candle_data(candle_ticker, HORIZON_MAP[candle_horizon])
 
     if cdf.empty:
         st.warning(f"ไม่มีข้อมูล OHLC สำหรับ {candle_ticker}")
     else:
-        # numpy imported at module level
+        # ── Helper functions ──
+        def calc_resistance(df: pd.DataFrame, window: int = 20) -> float:
+            if df.empty or len(df) < window:
+                return float(df["High"].max()) if not df.empty else 0.0
+            return float(df["High"].rolling(window).max().dropna().iloc[-1])
 
-        # ── สร้างกราฟ ──
+        def calc_bollinger(series: pd.Series, window: int = 20, num_std: float = 2.0):
+            sma   = series.rolling(window).mean()
+            std   = series.rolling(window).std()
+            upper = sma + num_std * std
+            lower = sma - num_std * std
+            return upper, sma, lower
+
+        def calc_rsi(series: pd.Series, period: int = 14) -> pd.Series:
+            delta = series.diff()
+            gain  = delta.clip(lower=0).rolling(period).mean()
+            loss  = (-delta.clip(upper=0)).rolling(period).mean()
+            rs    = gain / loss.replace(0, float("nan"))
+            return 100 - (100 / (1 + rs))
+
+        def calc_vwap(df: pd.DataFrame) -> pd.Series:
+            typical = (df["High"] + df["Low"] + df["Close"]) / 3
+            cum_vol = df["Volume"].cumsum()
+            cum_tp  = (typical * df["Volume"]).cumsum()
+            return cum_tp / cum_vol.replace(0, float("nan"))
+
+        last_close = float(cdf["Close"].iloc[-1])
+
+        # ── คำนวณ indicators ──
+        sup_level = calc_support(cdf)
+        res_level = calc_resistance(cdf)
+        bb_upper, bb_mid, bb_lower = calc_bollinger(cdf["Close"])
+        rsi_series = calc_rsi(cdf["Close"])
+        vwap_series = calc_vwap(cdf)
+
+        # ── กำหนด domain ตาม subplot ที่เปิดอยู่ ──
+        # แกน y1=candle, y2=volume, y3=RSI
+        has_rsi = show_rsi
+        if has_rsi:
+            candle_domain = [0.40, 1.0]
+            vol_domain    = [0.25, 0.37]
+            rsi_domain    = [0.0,  0.22]
+        else:
+            candle_domain = [0.25, 1.0]
+            vol_domain    = [0.0,  0.20]
+            rsi_domain    = [0.0,  0.0]
+
+        # ── สร้างกราฟหลัก ──
         fig_c = go.Figure()
 
-        # แท่งเทียน
+        # 1. แท่งเทียน
         fig_c.add_trace(go.Candlestick(
             x=cdf.index,
             open=cdf["Open"], high=cdf["High"],
@@ -585,35 +679,80 @@ def show_peer_analysis():
             decreasing_line_color="#ef5350",
             increasing_fillcolor="#26a69a",
             decreasing_fillcolor="#ef5350",
+            yaxis="y1",
         ))
 
-        # EMA lines
+        # 2. EMA lines
         ema_cfg = [
             (show_ema20,  20,  "#FFD700", "EMA 20"),
             (show_ema50,  50,  "#FF8C00", "EMA 50"),
             (show_ema100, 100, "#FF4500", "EMA 100"),
         ]
-        for enabled, span, color, name in ema_cfg:
+        for enabled, span, color, lbl in ema_cfg:
             if enabled and len(cdf) >= span:
-                ema_vals = calc_ema(cdf["Close"], span)
                 fig_c.add_trace(go.Scatter(
-                    x=cdf.index, y=ema_vals,
-                    mode="lines", name=name,
-                    line=dict(color=color, width=1.5, dash="solid"),
+                    x=cdf.index, y=calc_ema(cdf["Close"], span),
+                    mode="lines", name=lbl,
+                    line=dict(color=color, width=1.5),
+                    yaxis="y1",
+                    hovertemplate=f"{lbl}: %{{y:.2f}}<extra></extra>",
                 ))
 
-        # Support level — เส้นแนวนอน
+        # 3. Bollinger Bands — ใส่ fill ระหว่าง upper/lower
+        if show_bb:
+            fig_c.add_trace(go.Scatter(
+                x=cdf.index, y=bb_upper,
+                mode="lines", name="BB Upper",
+                line=dict(color="rgba(150,150,255,0.7)", width=1, dash="dot"),
+                yaxis="y1",
+                hovertemplate="BB Upper: %{y:.2f}<extra></extra>",
+            ))
+            fig_c.add_trace(go.Scatter(
+                x=cdf.index, y=bb_mid,
+                mode="lines", name="BB Mid (SMA20)",
+                line=dict(color="rgba(150,150,255,0.5)", width=1),
+                yaxis="y1",
+                hovertemplate="BB Mid: %{y:.2f}<extra></extra>",
+            ))
+            fig_c.add_trace(go.Scatter(
+                x=cdf.index, y=bb_lower,
+                mode="lines", name="BB Lower",
+                fill="tonexty",
+                fillcolor="rgba(100,100,200,0.07)",
+                line=dict(color="rgba(150,150,255,0.7)", width=1, dash="dot"),
+                yaxis="y1",
+                hovertemplate="BB Lower: %{y:.2f}<extra></extra>",
+            ))
+
+        # 4. VWAP
+        if show_vwap:
+            fig_c.add_trace(go.Scatter(
+                x=cdf.index, y=vwap_series,
+                mode="lines", name="VWAP",
+                line=dict(color="#E040FB", width=1.5, dash="dashdot"),
+                yaxis="y1",
+                hovertemplate="VWAP: %{y:.2f}<extra></extra>",
+            ))
+
+        # 5. Support & Resistance hlines
         if show_sup:
-            sup_level = calc_support(cdf)
             fig_c.add_hline(
-                y=sup_level,
+                y=sup_level, yref="y1",
                 line=dict(color="#00BFFF", width=1.5, dash="dot"),
                 annotation_text=f"Support ${sup_level:.2f}",
                 annotation_position="bottom right",
                 annotation_font_color="#00BFFF",
             )
+        if show_res:
+            fig_c.add_hline(
+                y=res_level, yref="y1",
+                line=dict(color="#FF69B4", width=1.5, dash="dot"),
+                annotation_text=f"Resistance ${res_level:.2f}",
+                annotation_position="top right",
+                annotation_font_color="#FF69B4",
+            )
 
-        # Trendlines — Uptrend / Downtrend
+        # 6. Trendlines
         trend_n = min(60, len(cdf))
         trends = calc_trendline(cdf, last_n=trend_n)
         if trends:
@@ -621,84 +760,163 @@ def show_peer_analysis():
                 t = trends["up"]
                 fig_c.add_shape(type="line",
                     x0=t["x0"], y0=t["y0"], x1=t["x1"], y1=t["y1"],
+                    yref="y1", xref="x",
                     line=dict(color="#00FF7F", width=1.5, dash="dash"),
                 )
-                fig_c.add_annotation(
-                    x=t["x1"], y=t["y1"],
+                fig_c.add_annotation(x=t["x1"], y=t["y1"], yref="y1",
                     text="Uptrend", font=dict(color="#00FF7F", size=11),
-                    showarrow=False, xanchor="left",
-                )
+                    showarrow=False, xanchor="left")
             if show_dn and trends.get("dn"):
                 t = trends["dn"]
                 fig_c.add_shape(type="line",
                     x0=t["x0"], y0=t["y0"], x1=t["x1"], y1=t["y1"],
+                    yref="y1", xref="x",
                     line=dict(color="#FF6B6B", width=1.5, dash="dash"),
                 )
-                fig_c.add_annotation(
-                    x=t["x1"], y=t["y1"],
+                fig_c.add_annotation(x=t["x1"], y=t["y1"], yref="y1",
                     text="Downtrend", font=dict(color="#FF6B6B", size=11),
-                    showarrow=False, xanchor="left",
-                )
+                    showarrow=False, xanchor="left")
 
-        # Volume bar (subplot ล่าง)
+        # 7. Volume bar
         fig_c.add_trace(go.Bar(
             x=cdf.index, y=cdf["Volume"],
             name="Volume",
-            marker_color=[
-                "#26a69a" if c >= o else "#ef5350"
-                for c, o in zip(cdf["Close"], cdf["Open"])
-            ],
-            yaxis="y2",
-            showlegend=True,
-            opacity=0.4,
+            marker_color=["#26a69a" if c >= o else "#ef5350"
+                          for c, o in zip(cdf["Close"], cdf["Open"])],
+            yaxis="y2", opacity=0.45,
+            hovertemplate="Vol: %{y:,.0f}<extra></extra>",
         ))
 
+        # 8. RSI subplot
+        if show_rsi:
+            fig_c.add_trace(go.Scatter(
+                x=cdf.index, y=rsi_series,
+                mode="lines", name="RSI (14)",
+                line=dict(color="#F48024", width=1.5),
+                yaxis="y3",
+                hovertemplate="RSI: %{y:.1f}<extra></extra>",
+            ))
+            # โซน overbought/oversold
+            fig_c.add_hrect(y0=70, y1=100, yref="y3",
+                fillcolor="rgba(239,83,80,0.08)", line_width=0)
+            fig_c.add_hrect(y0=0, y1=30, yref="y3",
+                fillcolor="rgba(38,166,154,0.08)", line_width=0)
+            for level, color, label in [(70, "rgba(239,83,80,0.5)", "OB 70"),
+                                        (30, "rgba(38,166,154,0.5)", "OS 30")]:
+                fig_c.add_hline(y=level, yref="y3",
+                    line=dict(color=color, width=1, dash="dot"),
+                    annotation_text=label,
+                    annotation_font_color=color,
+                    annotation_position="left",
+                )
+
+        # ── Layout ──
+        height = 700 if show_rsi else 580
         fig_c.update_layout(
-            title=dict(text=f"{candle_ticker} — Candlestick Chart", font=dict(size=16)),
+            title=dict(text=f"{candle_ticker} — Technical Analysis", font=dict(size=16)),
             template="plotly_dark",
-            height=580,
-            xaxis=dict(
-                rangeslider=dict(visible=False),
-                type="date",
-            ),
-            yaxis=dict(title="ราคา ($)", domain=[0.25, 1.0], showgrid=True,
-                       gridcolor="rgba(255,255,255,0.08)"),
-            yaxis2=dict(title="Volume", domain=[0.0, 0.20], showgrid=False),
+            height=height,
+            xaxis=dict(rangeslider=dict(visible=False), type="date",
+                       domain=[0, 1]),
+            yaxis=dict(title="ราคา ($)", domain=candle_domain,
+                       showgrid=True, gridcolor="rgba(255,255,255,0.07)"),
+            yaxis2=dict(title="Volume", domain=vol_domain, showgrid=False),
+            yaxis3=dict(title="RSI", domain=rsi_domain,
+                        range=[0, 100], showgrid=True,
+                        gridcolor="rgba(255,255,255,0.07)") if show_rsi else {},
             legend=dict(orientation="h", yanchor="bottom", y=1.02,
-                        xanchor="right", x=1),
+                        xanchor="right", x=1, font=dict(size=11)),
             margin=dict(l=10, r=10, t=60, b=10),
             plot_bgcolor="rgba(0,0,0,0)",
             paper_bgcolor="rgba(0,0,0,0)",
+            hovermode="x unified",
         )
 
         st.plotly_chart(fig_c, use_container_width=True)
 
-        # ── สรุปตัวเลข EMA + Support ──
-        with st.expander("📋 ค่า EMA และ Support ปัจจุบัน", expanded=False):
-            last_close = float(cdf["Close"].iloc[-1])
+        # ── ตาราง Summary ──
+        with st.expander("📋 สรุปตัวชี้วัดทั้งหมด ณ ปัจจุบัน", expanded=False):
             summary_rows = []
+
+            # EMA
             for span, lbl in [(20, "EMA 20"), (50, "EMA 50"), (100, "EMA 100")]:
                 if len(cdf) >= span:
-                    val = float(calc_ema(cdf["Close"], span).iloc[-1])
-                    diff_pct = (last_close - val) / val * 100
-                    signal = "🟢 อยู่เหนือ" if last_close > val else "🔴 อยู่ใต้"
+                    val  = float(calc_ema(cdf["Close"], span).iloc[-1])
+                    diff = (last_close - val) / val * 100
                     summary_rows.append({
                         "ตัวชี้วัด": lbl,
                         "ค่า": f"${val:.2f}",
-                        "ราคาปัจจุบัน vs EMA": f"{diff_pct:+.2f}%",
-                        "สัญญาณ": signal,
+                        "vs ราคาปัจจุบัน": f"{diff:+.2f}%",
+                        "สัญญาณ": "🟢 เหนือ" if last_close > val else "🔴 ใต้",
+                        "ความหมาย": "Momentum ขาขึ้น" if last_close > val else "Momentum ขาลง",
                     })
+
+            # Bollinger
+            if show_bb:
+                bb_u = float(bb_upper.dropna().iloc[-1])
+                bb_m = float(bb_mid.dropna().iloc[-1])
+                bb_l = float(bb_lower.dropna().iloc[-1])
+                bb_pos = (last_close - bb_l) / (bb_u - bb_l) * 100 if (bb_u - bb_l) > 0 else 50
+                bb_sig = "🔴 Overbought" if bb_pos > 80 else ("🟢 Oversold" if bb_pos < 20 else "⚪ กลาง")
+                summary_rows.append({
+                    "ตัวชี้วัด": "BB Position",
+                    "ค่า": f"{bb_pos:.1f}%",
+                    "vs ราคาปัจจุบัน": f"Upper:${bb_u:.2f} / Lower:${bb_l:.2f}",
+                    "สัญญาณ": bb_sig,
+                    "ความหมาย": "ตำแหน่งราคาใน BB (0%=Lower, 100%=Upper)",
+                })
+
+            # Support / Resistance
             if show_sup:
+                dist = (last_close - sup_level) / sup_level * 100
                 summary_rows.append({
                     "ตัวชี้วัด": "Support",
-                    "ค่า": f"${calc_support(cdf):.2f}",
-                    "ราคาปัจจุบัน vs EMA": "-",
+                    "ค่า": f"${sup_level:.2f}",
+                    "vs ราคาปัจจุบัน": f"+{dist:.2f}% เหนือ",
                     "สัญญาณ": "🔵 แนวรับ",
+                    "ความหมาย": "ราคาต่ำสุด 20 แท่ง — โซนซื้อ",
                 })
-            st.dataframe(
-                pd.DataFrame(summary_rows).set_index("ตัวชี้วัด"),
-                use_container_width=True,
-            )
+            if show_res:
+                dist = (res_level - last_close) / last_close * 100
+                summary_rows.append({
+                    "ตัวชี้วัด": "Resistance",
+                    "ค่า": f"${res_level:.2f}",
+                    "vs ราคาปัจจุบัน": f"-{dist:.2f}% ต่ำกว่า",
+                    "สัญญาณ": "🩷 แนวต้าน",
+                    "ความหมาย": "ราคาสูงสุด 20 แท่ง — โซนขาย",
+                })
+
+            # RSI
+            if show_rsi:
+                rsi_val = float(rsi_series.dropna().iloc[-1])
+                rsi_sig = ("🔴 Overbought" if rsi_val > 70
+                           else "🟢 Oversold" if rsi_val < 30
+                           else "⚪ Neutral")
+                summary_rows.append({
+                    "ตัวชี้วัด": "RSI (14)",
+                    "ค่า": f"{rsi_val:.1f}",
+                    "vs ราคาปัจจุบัน": "-",
+                    "สัญญาณ": rsi_sig,
+                    "ความหมาย": ">70 แพงเกิน | <30 ถูกเกิน | 50=สมดุล",
+                })
+
+            # VWAP
+            if show_vwap:
+                vwap_val = float(vwap_series.dropna().iloc[-1])
+                dist = (last_close - vwap_val) / vwap_val * 100
+                summary_rows.append({
+                    "ตัวชี้วัด": "VWAP",
+                    "ค่า": f"${vwap_val:.2f}",
+                    "vs ราคาปัจจุบัน": f"{dist:+.2f}%",
+                    "สัญญาณ": "🟢 เหนือ VWAP" if last_close > vwap_val else "🔴 ใต้ VWAP",
+                    "ความหมาย": "เหนือ=แรงซื้อครอง | ใต้=แรงขายครอง",
+                })
+
+            if summary_rows:
+                st.dataframe(
+                    pd.DataFrame(summary_rows).set_index("ตัวชี้วัด"),
+                    use_container_width=True,
+                )
 
     # ------------------------------------------------------------------
     st.markdown("## ข้อมูลดิบ")
